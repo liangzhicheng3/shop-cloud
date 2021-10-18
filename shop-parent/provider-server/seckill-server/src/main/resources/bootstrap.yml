@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: seckill-server
+  cloud:
+    config:
+      discovery:
+        enabled: true
+        service-id: config-server
+      label: master
+      name: seckill-server,redis,rocketmq-server,alipay
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/

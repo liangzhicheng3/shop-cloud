@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<head>
+    <title>商品详情</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <script type="text/javascript" src="/js/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/bootstrap/css/bootstrap.min.css" />
+    <script type="text/javascript" src="/bootstrap/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/jquery-validation/jquery.validate.min.js"></script>
+    <script type="text/javascript" src="/jquery-validation/localization/messages_zh.min.js"></script>
+    <script type="text/javascript" src="/layer/layer.js"></script>
+    <script type="text/javascript" src="/js/md5.min.js"></script>
+    <script type="text/javascript" src="/js/common.js"></script>
+    <script type="text/javascript" src="/js/socket.js"></script>
+</head>
+<body>
+<div class="panel panel-default">
+    <div class="panel-heading">秒杀商品详情</div>
+    <div class="panel-body">
+    <div id="div-user-not-login" style="display: none">
+        <span> 您还没有登录，请<a href="/login.html">登陆</a>后再操作<br/></span>
+    </div>
+    <span>没有收货地址的提示。。。</span>
+</div>
+<table class="table">
+    <tr>
+        <td>商品名称</td>
+        <td colspan="3" id="goodsName"></td>
+    </tr>
+    <tr>
+        <td>商品图片</td>
+        <td colspan="3"><img id="goodsImage"  width="200" height="200" /></td>
+    </tr>
+    <tr>
+        <td>秒杀开始时间</td>
+        <td id="startTime"></td>
+        <td id="td-id-seckill-start-time">
+        </td>
+        <td>
+            <img id="img-id-verify-code-img" width="80" height="32" onclick="initVerifyCodeImg()"/>
+            <input id="input-id-verify-code"/>
+            <button class="btn btn-primary btn-block" type="button" id="button-seckill" onclick="getRandom()">立即秒杀</button>
+        </td>
+    </tr>
+    <tr>
+        <td>商品原价</td>
+        <td colspan="3" id="goodsPrice"></td>
+    </tr>
+    <tr>
+        <td>秒杀价</td>
+        <td colspan="3" id="seckillPrice"></td>
+    </tr>
+    <tr>
+        <td>库存数量</td>
+        <td colspan="3" id="stockNum"></td>
+    </tr>
+</table>
+</div>
+<script>
+    var seckillId = getQueryString("seckillId");
+    var user; //初始化用户
+    var timer; //初始化倒计时
+    initVerifyCodeImg(); //初始化验证码图片
+    /**
+     * @description 加载秒杀商品详情页数据
+     */
+    $(function () {
+        $.ajax({
+            url: 'http://localhost:9000/seckill/seckill/goods/' + seckillId,
+            type: "GET",
+            xhrFields: {
+                withCredentials: true
+            },
+            success: function (result) {
+                if(result.code === 10000){
+                    //将秒杀商品对象渲染到详情页面中
+                    renderDetail(result.data);
+                }else{
+                    layer.msg(result.message);
+                }
+            },
+            error: function (result) {
+                if (result.responseJSON) {
+                    layer.msg(result.responseJSON.message);
+                }
+            }
+        });
+    });
+
+    /**
+     * @description 将秒杀商品对象渲染到详情页面中
+     * @param seckillGoodsVO
+     */
+    function renderDetail(seckillGoodsVO) {
+        $("#goodsName").text(seckillGoodsVO.goodsName);
+        $("#goodsImage").prop("src", seckillGoodsVO.goodsImage);
+        $("#startTime").text(seckillGoodsVO.startTime);
+        $("#goodsPrice").text(seckillGoodsVO.goodsPrice);
+        $("#seckillPrice").text(seckillGoodsVO.seckillPrice);
+        $("#stockNum").text(seckillGoodsVO.stockNum);
+        //加载当前登录用户
+        renderUser();
+        //1.加载完页面直接开始判断活动状态
+        renderTime(seckillGoodsVO.startTime, seckillGoodsVO.endTime);
+        //2.渲染页面倒计时（可周期性运行，定时任务）
+        timer = setInterval(function (args) {
+            renderTime(seckillGoodsVO.startTime, seckillGoodsVO.endTime)
+        }, 1000);
+    }
+
+    /**
+     * @description 加载当前登录用户
+     */
+    function renderUser() {
+        $.ajax({
+            url: 'http://localhost:9000/member/user/getByToken',
+            type: "GET",
+            xhrFields: {
+                withCredentials: true
+            },
+            success: function (result) {
+                if(result.code === 10000 && result.data){
+                    user = result.data;
+                }else{
+                    //用户未登录
+                    $("#div-user-not-login").show();
+                    $("#button-seckill").prop("disabled", true);
+                }
+            },
+            error: function (result) {
+                if (result.responseJSON) {
+                    layer.msg(result.responseJSON.message);
+                }
+            }
+        });
+    }
+
+    /**
+     * @description 渲染页面倒计时（可周期性运行，定时任务）
+     * @param start
+     * @param end
+     */
+    function renderTime(start, end) {
+        var startTime = new Date(start).getTime(),
+            endTime = new Date(end).getTime(),
+            now = new Date().getTime();
+        //1.如果当前时间小于开始时间，秒杀活动尚未开始，禁用秒杀按钮，显示倒计时
+        if(now < startTime){
+            $("#button-seckill").prop("disabled", true);
+            var remain = parseInt((startTime - now) / 1000);
+            $("#td-id-seckill-start-time").text("距离秒杀活动开始还有:" + remain + "秒");
+        }else{
+            //2.如果当前时间大于开始时间 && 当前时间小于结束时间，秒杀活动进行中，启用秒杀按钮，隐藏倒计时
+            if(now < endTime){
+                if(user){
+                    $("#button-seckill").prop("disabled", false);
+                }
+                var remain = parseInt((endTime - now) / 1000);
+                $("#td-id-seckill-start-time").text("距离秒杀活动结束还有:" + remain + "秒");
+            }else{
+                //3.如果当前时间大于开始时间 && 当前时间大于结束时间，秒杀活动已结束，禁用秒杀按钮，并提示秒杀活动已结束
+                $("#button-seckill").prop("disabled", true);
+                $("#td-id-seckill-start-time").text("秒杀活动已结束");
+                //活动结束后清除定时任务
+                clearInterval(timer);
+            }
+        }
+    }
+
+    function initVerifyCodeImg() {
+        //修改img标签的src属性，修改为获取验证码图片的路径
+        $("#img-id-verify-code-img").prop("src",
+            "http://localhost:9000/seckill/verify/code?timestamp="
+            + new Date().getTime()
+            + "&seckillId=" + seckillId);
+    }
+
+    /**
+     * @description 隐藏秒杀地址
+     */
+    function getRandom() {
+        if(!user){
+            layer.msg("请登录后再进行秒杀");
+            return;
+        }
+        if(!seckillId){
+            layer.msg("秒杀参数有误");
+            return;
+        }
+        //获取用户输入的验证码
+        var verifyCode = $("#input-id-verify-code").val();
+        if(!verifyCode) {
+            layer.msg("请输入验证码");
+            return;
+        }
+        $.ajax({
+            url: 'http://localhost:9000/seckill/path/' + seckillId + "/" + verifyCode,
+            type: "GET",
+            xhrFields: {
+                withCredentials: true
+            },
+            success: function (result) {
+                if (result.code === 10000) {
+                    doSeckill(result.data);
+                } else {
+                    layer.msg(result.message);
+                }
+            },
+            error: function (result) {
+                if (result.responseJSON) {
+                    layer.msg(result.responseJSON.message);
+                }
+            }
+        });
+    }
+
+    /**
+     * @description 开始进行秒杀
+     */
+    function doSeckill(random) {
+        //1.检查用户是否登录
+        if(!user){
+            layer.msg("请登录后再进行秒杀");
+            return;
+        }
+        //2.检查参数
+        if(!seckillId){
+            layer.msg("秒杀参数有误");
+            return;
+        }
+        //生成uuid
+        var uuid = getUuid(user.id);
+        //3.直接发起秒杀请求
+        $.ajax({
+            url: 'http://localhost:9000/seckill/seckill/order/doSeckill/' + random,
+            type: "POST",
+            data: {
+                seckillId: seckillId,
+                uuid: uuid
+            },
+            xhrFields: {
+                withCredentials: true
+            },
+            success: function (result) {
+                if (result.code === 10000) {
+                    //4.如果秒杀成功, 往订单详情页跳转
+                    //location.href = "/order_detail.html?orderNo=" + result.data;
+                    layer.msg(result.message);
+                    //建立长链接实时监听是否秒杀成功
+                    createSocket(uuid);
+                } else {
+                    layer.msg(result.message);
+                }
+            },
+            error: function (result) {
+                if (result.responseJSON) {
+                    layer.msg(result.responseJSON.message);
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>

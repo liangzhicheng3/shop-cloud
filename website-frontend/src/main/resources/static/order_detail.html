@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>商品详情</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <script type="text/javascript" src="/js/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/bootstrap/css/bootstrap.min.css" />
+    <script type="text/javascript" src="/bootstrap/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/jquery-validation/jquery.validate.min.js"></script>
+    <script type="text/javascript" src="/jquery-validation/localization/messages_zh.min.js"></script>
+    <script type="text/javascript" src="/layer/layer.js"></script>
+    <script type="text/javascript" src="/js/md5.min.js"></script>
+    <script type="text/javascript" src="/js/common.js"></script>
+    <script type="text/javascript" src="/js/paySocket.js"></script>
+</head>
+<body>
+<div class="panel panel-default"  style="height:100%;background-color:rgba(222,222,222,0.8)">
+    <div class="panel-heading">秒杀订单详情</div>
+    <table class="table" id="goodslist">
+        <tr>
+            <td>商品名称</td>
+            <td colspan="3" id="goodsName"></td>
+        </tr>
+        <tr>
+            <td>商品图片</td>
+            <td colspan="2"><img id="goodsImage"  width="200" height="200" /></td>
+        </tr>
+        <tr>
+            <td>订单价格</td>
+            <td colspan="2" id="seckillPrice"></td>
+        </tr>
+        <tr>
+            <td>下单时间</td>
+            <td colspan="2" id="createTime"></td>
+        </tr>
+        <tr>
+            <td>订单状态</td>
+            <td class="td-class-status_0" style="display: none">
+                未支付
+                <button class="btn btn-primary btn-block" type="button" id="payButton" onclick="doPay()">立即支付</button>
+            </td>
+            <td class="td-class-status_1" style="display: none">
+                已支付
+            </td>
+            <td class="td-class-status_3" style="display: none">
+                订单已取消(订单超时)
+            </td>
+        </tr>
+        <tr>
+            <td>收货人</td>
+            <td colspan="2">易成是个乌龙匠呀  15888888888</td>
+        </tr>
+        <tr>
+            <td>收货地址</td>
+            <td colspan="2">来自同一片土地上</td>
+        </tr>
+    </table>
+</div>
+<script>
+    var orderNo = getQueryString("orderNo");
+    $.ajax({
+        url: 'http://localhost:9000/seckill/seckill/order/get/' + orderNo,
+        type: "GET",
+        xhrFields: {
+            withCredentials: true
+        },
+        success: function (result) {
+            //将秒杀订单对象渲染到详情页面中
+            renderDetail(result.data);
+        },
+        error: function (result) {
+            if (result.responseJSON) {
+                layer.msg(result.responseJSON.message);
+            }
+        }
+    });
+
+    /**
+     * @description 将秒杀订单对象渲染到详情页面中
+     * @param seckillOrderVO
+     */
+    function renderDetail(seckillOrderVO) {
+        $("#goodsName").text(seckillOrderVO.goodsName);
+        $("#goodsImage").prop("src", seckillOrderVO.goodsImage);
+        $("#seckillPrice").text(seckillOrderVO.seckillPrice);
+        $("#createTime").text(seckillOrderVO.createTime);
+        $(".td-class-status_" + seckillOrderVO.status).show();
+    }
+
+    /**
+     * @description 发起支付请求
+     */
+    function doPay() {
+        location.href = "http://localhost:9000/seckill/seckill/pay/alipay?orderNo=" + orderNo;
+    }
+</script>
+</body>
+</html>
